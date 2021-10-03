@@ -1,14 +1,17 @@
-# pandas-sets
+# pandas-sets: distinct
 
-## La idea
+## El problema
 
-Dados dos conjuntos (dataframes) A y B quiero obtener los items (las filas) que
-son distintas entre ambos conjuntos.
+Dados dos conjuntos (dataframes) A y B quiero obtener conjuntos (las filas) que
+no pertenecen a la intersección. Es decir, los items que son distintos entre
+ambos conjuntos.
 
 ![venn diagram](venn.png)
 
 
-## con un ejemplo
+### con un ejemplo
+
+Notar que:
 
 - comparación element-wise no posible porque el orden importa y en el DF pueden
   estar desordenados.
@@ -58,9 +61,11 @@ left_expected = pd.DataFrame([
 right_expected = pd.DataFrame([], columns=[0, 1, 2], index=[])
 
 left_obtained, right_obtained = utils.distinct(left, right, subset=[1, 2])
-
-
 ```
+
+
+### Manteniendo el comportamiento que tienen los conjuntos:
+
 
 Quiero mantener el mismo comportamiento que en los `set`:
 
@@ -72,4 +77,32 @@ Quiero mantener el mismo comportamiento que en los `set`:
 >>> r - l
 set()
 >>>
+```
+
+
+# Implementación base
+
+
+```mermaid
+graph TD
+
+linkStyle default interpolate basis
+A --> zip
+B --> zip
+zip --> for
+subgraph FOR
+for --> row_A
+for --> row_B
+row_A --> if_equal
+row_B --> if_equal
+if_equal --> |True| pass
+if_equal --> |False| if_row_A_in_B
+
+subgraph A_in_B_and_B_in_A
+if_row_A_in_B -->|True| Decrease_count_distinct_of_B
+if_row_A_in_B -->|False| Decrease_count_distinct_of_A
+end
+
+end
+
 ```

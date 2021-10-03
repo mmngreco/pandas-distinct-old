@@ -105,3 +105,40 @@ def test_distinct_groupby():
     right = pd.DataFrame([[1, 2, 3], [1, 2, 3]])
 
     out_left, out_right = utils.distinct_groupby(left, right, subset=[0,1,2])
+
+import pytest
+from itertools import product
+
+
+@pytest.mark.parametrize("func,n", product([utils.distinct, utils.distinct_groupby], [10, 100, 1000, 10000]),)
+def test_comparison_naive(func, n, benchmark):
+    """
+    %timeit utils.distinct(left, right, subset=[0,1])
+    %timeit utils.distinct_groupby(left, right, subset=[0,1])
+
+    ## shape = 100, 2
+    >>> %timeit utils.distinct(left, right, subset=[0,1])
+    4.28 ms ± 100 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+
+    >>> %timeit utils.distinct_groupby(left, right, subset=[0,1])
+    31 ms ± 634 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+
+    ## shape = 1000, 2
+    >>> %timeit utils.distinct(left, right, subset=[0,1])
+    8.06 ms ± 243 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+
+    >>> %timeit utils.distinct_groupby(left, right, subset=[0,1])
+    34.1 ms ± 836 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+    """
+    import pandas as pd
+    import numpy as np
+    import utils
+
+    shape = n, 2
+    left = pd.DataFrame(np.random.randint(0, 4, np.multiply(*shape)).reshape(shape))
+    right = pd.DataFrame(np.random.randint(0, 4, np.multiply(*shape)).reshape(shape))
+    aa, bb = benchmark.pedantic(func, args=(left, right), kwargs=dict(subset=[0,1]), iterations=10, rounds=100)
+    # aa, bb = benchmark.pedantic(utils.distinct, args=(left, right), kwargs=dict(subset=[0,1]), iterations=10, rounds=100)
+    # AA, BB = benchmark.pedantic(utils.distinct, args=(left, right), kwargs=dict(subset=[0,1]), iterations=10)
+    # np.testing.assert_almost_equal(aa.sort_values([0, 1]).values, AA.values)
+    # np.testing.assert_almost_equal(bb.sort_values([0, 1]).values, BB.values)

@@ -89,11 +89,33 @@ import pandas as pd
 
 def distinct_groupby(left, right, subset=None):
 
-    left["source"] = "left"
-    right["source"] = "right"
+    # add label of set source
+    left = left.copy()
+    right = right.copy()
+
+    left["source"] = "A"
+    right["source"] = "B"
 
     _all = pd.concat([left, right], axis=0)
-    __import__("pdb").set_trace()
-    _all.groupby(subset).count()
-    return _all
+    _all["n"] = 1
+    freq_table = _all.pivot_table(
+            columns=["source"],
+            index=subset,
+            aggfunc="count"
+    )
+    a_subs_b = freq_table["n"].fillna(0).eval("A - B").to_frame("AsubsB")
+
+    a_distinct = a_subs_b.query("AsubsB>0")
+    out_a = []
+    for i, n in a_distinct.itertuples():
+        out_a.extend([i]*int(n))
+    a_distinct_df = pd.DataFrame(out_a)
+
+    b_distinct = (-a_subs_b).query("AsubsB>0")
+    out_b = []
+    for i, n in b_distinct.itertuples():
+        out_b.extend([i]*int(n))
+    b_distinct_df = pd.DataFrame(out_b)
+
+    return a_distinct_df, b_distinct_df
 
