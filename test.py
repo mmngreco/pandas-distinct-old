@@ -1,5 +1,39 @@
+"""
+import utils
+import pandas as pd
+import numpy as np
+
+def make_left_right(n=10):
+    left = pd.DataFrame(np.random.randint(0, 5, (n, 2)))
+    right = pd.DataFrame(np.random.randint(0, 5, (n, 2)))
+    return (left, right)
+
+n = 100_000
+%timeit utils.distinct(*make_left_right(n=n), subset=[0,1])
+%timeit utils.distinct_pandas(*make_left_right(n=n), subset=[0,1])
+%timeit utils.distinct_pandas_unstack(*make_left_right(n=n), subset=[0,1])
+%timeit utils.distinct_counter(*make_left_right(n=n), subset=[0,1])
+
+## shape = 100, 2
+>>> %timeit utils.distinct(left, right, subset=[0,1])
+4.28 ms ± 100 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+
+>>> %timeit utils.distinct_pandas(left, right, subset=[0,1])
+31 ms ± 634 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+
+## shape = 1000, 2
+>>> %timeit utils.distinct(left, right, subset=[0,1])
+8.06 ms ± 243 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+
+>>> %timeit utils.distinct_pandas(left, right, subset=[0,1])
+>>> %timeit utils.distinct_pandas_unstack(left, right, subset=[0,1])
+34.1 ms ± 836 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
 import pandas as pd
 import utils
+"""
+
+import pytest
+from itertools import product
 
 
 def _assert_df(left, right):
@@ -75,22 +109,19 @@ def test_distinct_subset_1():
 def test_distinct_subset_2():
 
     columns = [0, 1, 2]
-    left = pd.DataFrame([
-        [1, 2, 3],
-		[1, 2, 3],
-		[1, 2, 33]],
+    left = pd.DataFrame(
+        [[1, 2, 3], [1, 2, 3], [1, 2, 33]],
         index=["a", "a", "b"],
         columns=columns,
     )
-    right = pd.DataFrame([
-        [1, 2, 3],
-		[1, 2, 33]],
-        index=["a", "b"], columns=columns)
+    right = pd.DataFrame(
+        [[1, 2, 3], [1, 2, 33]], index=["a", "b"], columns=columns
+    )
 
     out_left, out_right = utils.distinct(left, right, subset=[1, 2])
 
-    out_left_expected = pd.DataFrame([
-		[1, 2, 3]],
+    out_left_expected = pd.DataFrame(
+        [[1, 2, 3]],
         index=["a"],
         columns=columns,
     )
@@ -99,46 +130,25 @@ def test_distinct_subset_2():
     _assert_df((out_left, out_left_expected), (out_right, out_right_expected))
 
 
-def test_distinct_groupby():
+def test_distinct_pandas():
 
     left = pd.DataFrame([[1, 2, 3], [1, 2, 33]])
     right = pd.DataFrame([[1, 2, 3], [1, 2, 3]])
 
-    out_left, out_right = utils.distinct_groupby(left, right, subset=[0,1,2])
-
-import pytest
-from itertools import product
+    out_left, out_right = utils.distinct_pandas_unstack(left, right, subset=[0, 1, 2])
 
 
-@pytest.mark.parametrize("func,n", product([utils.distinct, utils.distinct_groupby], [10, 100, 1000, 10000]),)
-def test_comparison_naive(func, n, benchmark):
-    """
-    %timeit utils.distinct(left, right, subset=[0,1])
-    %timeit utils.distinct_groupby(left, right, subset=[0,1])
+def test_distinct_counter():
 
-    ## shape = 100, 2
-    >>> %timeit utils.distinct(left, right, subset=[0,1])
-    4.28 ms ± 100 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+    columns = [0, 1, 2]
+    left = pd.DataFrame([[1, 2, 3], [1, 2, 33]])
+    right = pd.DataFrame([[1, 2, 3], [1, 2, 3]])
 
-    >>> %timeit utils.distinct_groupby(left, right, subset=[0,1])
-    31 ms ± 634 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+    # expected
+    out_left_expected = pd.DataFrame([[1, 2, 33]], columns=columns)
+    out_right_expected = pd.DataFrame([[1, 2, 3]], columns=columns)
 
-    ## shape = 1000, 2
-    >>> %timeit utils.distinct(left, right, subset=[0,1])
-    8.06 ms ± 243 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+    # obtained
+    out_left, out_right = utils.distinct_counter(left, right, subset=[0, 1, 2])
 
-    >>> %timeit utils.distinct_groupby(left, right, subset=[0,1])
-    34.1 ms ± 836 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
-    """
-    import pandas as pd
-    import numpy as np
-    import utils
-
-    shape = n, 2
-    left = pd.DataFrame(np.random.randint(0, 4, np.multiply(*shape)).reshape(shape))
-    right = pd.DataFrame(np.random.randint(0, 4, np.multiply(*shape)).reshape(shape))
-    aa, bb = benchmark.pedantic(func, args=(left, right), kwargs=dict(subset=[0,1]), iterations=10, rounds=100)
-    # aa, bb = benchmark.pedantic(utils.distinct, args=(left, right), kwargs=dict(subset=[0,1]), iterations=10, rounds=100)
-    # AA, BB = benchmark.pedantic(utils.distinct, args=(left, right), kwargs=dict(subset=[0,1]), iterations=10)
-    # np.testing.assert_almost_equal(aa.sort_values([0, 1]).values, AA.values)
-    # np.testing.assert_almost_equal(bb.sort_values([0, 1]).values, BB.values)
+    _assert_df((out_left, out_left_expected), (out_right, out_right_expected))

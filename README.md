@@ -2,19 +2,22 @@
 
 ## El problema
 
-Dados dos conjuntos (dataframes) A y B quiero obtener conjuntos (las filas) que
-no pertenecen a la intersección. Es decir, los items que son distintos entre
-ambos conjuntos.
+Dados dos conjuntos (dataframes) A y B, quiero obtener los conjuntos (las
+filas) que no pertenecen a la intersección. Es decir, los items que son
+distintos entre ambos conjuntos.
 
 ![venn diagram](venn.png)
 
 
 ### con un ejemplo
 
+Aunque parece un problema sencillo, tiene bastante casuística.
+
 Notar que:
 
-- comparación element-wise no posible porque el orden importa y en el DF pueden
-  estar desordenados.
+- Los indices pueden  repetirse.
+- comparación element-wise no es posible porque el orden importa y en el DF
+  pueden estar desordenados.
 - No quiero perder información de cuantas veces se repite un item del conjunto.
 
 
@@ -29,6 +32,7 @@ right = pd.DataFrame([   #          |
     [1, 2, 3],           #          |
     [1, 2, 3]            # diff <---+
 ])
+# Después de hacer: pandas_distinct(left, right)
 left_expected = pd.DataFrame([[1, 2, 33]], index=[1])
 right_expected = pd.DataFrame([[1, 2, 3]], index=[1])
 
@@ -88,21 +92,22 @@ set()
 graph TD
 
 linkStyle default interpolate basis
-A --> zip
-B --> zip
-zip --> for
-subgraph FOR
-for --> row_A
-for --> row_B
-row_A --> if_equal
-row_B --> if_equal
-if_equal --> |True| pass
-if_equal --> |False| if_row_A_in_B
 
-subgraph A_in_B_and_B_in_A
-if_row_A_in_B -->|True| Decrease_count_distinct_of_B
-if_row_A_in_B -->|False| Decrease_count_distinct_of_A
-end
+    A --> zip["zip(A.itertuples, B.itertuples)"]
+    B --> zip
+    zip --> for
+    subgraph FOR
+    for --> row_A
+    for --> row_B
+    row_A --> if_equal
+    row_B --> if_equal
+    if_equal --> |True| pass
+    if_equal --> |False| if_row_A_in_B
+
+    subgraph "Case A in B / B in A"
+        if_row_A_in_B -->|True| Decrease_count_distinct_of_B
+        if_row_A_in_B -->|False| Decrease_count_distinct_of_A
+    end
 
 end
 
@@ -121,11 +126,12 @@ B --> concat
 concat --> groupby
 groupby --> count
 count --> unstack
-select --> Afreq
-select --> Bfreq
-Afreq --> diff
-Bfreq --> diff
-diff --> select
+unstack --> select
+select --> Acounter
+select --> Bcounter
+Acounter --> diff
+Bcounter --> diff
+diff
 ```
 
 ## Pandas vs Naive
@@ -143,4 +149,50 @@ test_comparison_naive[distinct_groupby-100]        9.3132 (9.10)     10.3139 (7.
 test_comparison_naive[distinct_groupby-1000]       9.6025 (9.38)     11.8862 (8.39)      9.8512 (9.31)     0.3303 (5.39)      9.7036 (9.30)    0.3821 (29.13)        18;2  101.5101 (0.11)        100          10
 test_comparison_naive[distinct_groupby-10000]     11.8003 (11.53)    17.6023 (12.43)    12.1803 (11.51)    0.6781 (11.06)    11.9706 (11.48)    0.4115 (31.37)         8;4   82.0999 (0.09)        100          10
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+
+
+## Update 1
+
+### counter!!!
+
+
+```
+from collections import Counter
+import pandas as pd
+
+
+
+Counter()
+
+left = pd.DataFrame([
+    [1, 2, 3],  # a
+    [1, 2, 3],  # a
+    [1, 2, 33]  # b
+    ],
+    index=["a", "a", "b"],
+)
+right = pd.DataFrame([
+    [1, 2, 3],  # a
+    [1, 2, 33]  # b
+    ],
+    index=["a", "b"],
+)
+
+left_expected = pd.DataFrame([
+    [1, 2, 3], # a
+    ],
+    index=["a"],
+)
+right_expected = pd.DataFrame([], columns=[0, 1, 2], index=[])
+
+
+left_counter = Counter(left.itertuples(index=False))
+right_counter = Counter(right.itertuples(index=False))
+
+left_counter - right_counter
+right_counter - left_counter
+
+left_obtained, right_obtained = utils.distinct(left, right, subset=[1, 2])
 ```
